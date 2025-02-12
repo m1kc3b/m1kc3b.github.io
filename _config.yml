@@ -11,8 +11,8 @@ safe: true
 
 
 # edit here to achieve your personal greatness
-url: http://m1kc3b.github.io/
-baseurl: /
+url: https://m1kc3b.com
+baseurl: m1kc3b.com/
 title: m1kc3b
 author: m1kc3b
 description: I'm a Rust developer
