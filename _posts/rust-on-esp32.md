@@ -1,0 +1,689 @@
+---
+layout: post
+title:  Rust on microcontroller ESP32
+---
+
+<p>I purchased a basic ESP32 starter kit created by Lafvin with the plan to build each of the 10 projects with Rust instead of Arduino as the documentation calls for. This kit provides an ESP32-WROOM-32 and I also bought an ESP32c3-DevKitm-1 and a Raspberry Pi Pico W to practice on different microcontroller architectures (xtensa, RISC-V and Cortex-M0+ respectively). In this repo I focused on ESPs and I dedicated another repo to the Pico W.</p>
+
+<p>Bare-programming with Arduino is easier than with Rust because of the abstraction layers offers by the sdk but Rust gives us more power to handle the bare-metal with high-level programing style even if it is more verbose.</p>
+
+<p>On ESP32 one can develop as with any other microcontroller by using no_std mode. But thanks to the esp-idf-svc crate (IDF means IoT Development Framework) one can use Rust as usual, that means on std mode. So I used one or the other depending on the type of the project. When it was needed to implement a web server I chose to use the std mode (with esp-idf-svc as framework) instead of implement all from scratch.</p>
+
+<p>For each project, I provide a breadboard schema, a list of components and the arduino code (perhaps I gona upload videos of the finish projects).</p>
+
+<img src="../static/img/posts/rust-on-esp/microcontrollers.png" alt="microntrollers" width="600" style="display: block; margin: 0 auto">
+
+## Projects
+
+<p>Here is the list of projects:</p>
+
+### 0) Hello World
+The first simple project when one begins in bare-metal programming. I used an ESP32 with no_std.
+
+### 1) Blinky
+
+Simple project with a pushbutton and an LED. I used an ESP32 with no_std.
+
+<img src="../static/img/posts/rust-on-esp/project_1.png" alt="project 1 plan" width="600" style="display: block; margin: 0 auto">
+
+<details>
+<summary>Arduino code</summary>
+
+```
+// arduino code
+
+const int buttonPin = 4;
+const int ledPin = 5;
+int buttonState = 0;
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(buttonPin, INPUT);
+  pinMode(ledPin, OUTPUT);
+
+}
+
+void loop() {
+  buttonState = digitalRead(buttonPin);
+  Serial.println(buttonState);
+
+  if (buttonState == HIGH) {
+    digitalWrite(ledPin, HIGH);
+  } else {
+    digitalWrite(ledPin, LOW);
+  }
+
+}
+```
+</details>
+
+### 2) Analog Inputs (ADC)
+Reading an analog voltage value varying between 0V and 3.3V. The voltage measured is then assigned to a value between 0 (0V) and 4095 (3.3V) because the value has 12-bit resolution.
+
+I used an ESP32 with no_std.
+
+<img src="../static/img/posts/rust-on-esp/project_2.png" alt="project 2 plan" width="600" style="display: block; margin: 0 auto">
+
+<details>
+<summary>Arduino code</summary>
+
+```
+// arduino code
+
+const int potPin = 4;
+int potValue = 0;
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+}
+
+void loop() {
+  potValue = analogRead(potPin);
+  Serial.println(potValue);
+  delay(500);
+}
+```
+</details>
+
+### 3) PWM Analog Output
+Using the PWM protocol to increase/decrease the LED brightness with a resolution of 12 bits and a frequency of 4 Khz.
+
+I used an ESP32 with no_std.
+
+<img src="../static/img/posts/rust-on-esp/project_3.gif" alt="project 3 plan" width="600" style="display: block; margin: 0 auto">
+
+<img src="../static/img/posts/rust-on-esp/project_3.png" alt="project 3 plan" width="600" style="display: block; margin: 0 auto">
+
+<details>
+<summary>Arduino code</summary>
+
+```
+// arduino code
+
+const int ledPin = 4;
+const int freq = 5000;
+const int ledChannel = 0;
+const int resolution = 8;
+
+void setup(){
+  ledcSetup(ledChannel, freq, resolution);
+  ledcAttachPin(ledPin, ledChannel);
+}
+
+void loop(){
+  for(int dutyCycle = 0; dutyCycle <= 255; dutyCycle++){
+    ledcWrite(ledChannel, dutyCycle);
+    delay(15);
+  }
+
+  for(int dutyCycle = 255; dutyCycle >= 0; dutyCycle--){
+    ledcWrite(ledChannel, dutyCycle);
+    delay(15);
+  }
+}
+```
+</details>
+
+### 4) PIR Motion Sensor
+When motion is detected the buzzer will sound an alarm during 500 milliseconds.
+
+I used an ESP32 with no_std.
+
+<img src="../static/img/posts/rust-on-esp/project_4.png" alt="project 4 plan" width="600" style="display: block; margin: 0 auto">
+
+<details>
+<summary>Arduino code</summary>
+
+```
+// arduino code
+
+const int buzzerPin =  26;
+const int motionSensor = 27;
+
+
+unsigned long previousMillis = 0;
+unsigned long currentMillis;
+const long interval = 6000;
+
+void setup() {
+   Serial.begin(115200);
+  // set the digital pin as output:
+  pinMode(buzzerPin, OUTPUT);
+  pinMode(motionSensor, INPUT);
+}
+
+void loop() 
+{
+  int reading = digitalRead(motionSensor);
+  if (reading == HIGH)
+  {digitalWrite(buzzerPin,HIGH);
+   Serial.println("Motion detected!Buzzer alarm!");
+   previousMillis = millis();
+  }
+  else{
+  currentMillis = millis();
+   if (currentMillis - previousMillis >= interval) 
+   {
+    digitalWrite(buzzerPin, LOW);
+    Serial.println("Motion detected!Buzzer stop alarm!");
+    }
+  }
+}
+
+```
+</details>
+
+### 5) Switch Web Server
+Creating a standalone web server that controls (outputs) two Leds. The web server must be mobile responsive and can be accessed with any device that as a browser on the local network.
+
+I used an ESP32 in std mode with ESP-IDF.
+
+<img src="../static/img/posts/rust-on-esp/project_5.gif" alt="project 5 plan" width="600" style="display: block; margin: 0 auto">
+
+<img src="../static/img/posts/rust-on-esp/project_5.png" alt="project 5 plan" width="600" style="display: block; margin: 0 auto">
+
+<details>
+<summary>Arduino code</summary>
+
+```
+// arduino code
+
+// Load Wi-Fi library
+#include <WiFi.h>
+
+// Replace with your network credentials
+const char* ssid = "REPLACE_WITH_YOUR_SSID";
+const char* password = "REPLACE_WITH_YOUR_PASSWORD";
+
+
+// Set web server port number to 80
+WiFiServer server(80);
+
+// Variable to store the HTTP request
+String header;
+
+// Auxiliar variables to store the current output state
+String output26State = "off";
+String output27State = "off";
+
+// Assign output variables to GPIO pins
+const int output26 = 26;
+const int output27 = 27;
+
+// Current time
+unsigned long currentTime = millis();
+// Previous time
+unsigned long previousTime = 0; 
+// Define timeout time in milliseconds (example: 2000ms = 2s)
+const long timeoutTime = 2000;
+
+void setup() {
+  Serial.begin(115200);
+  // Initialize the output variables as outputs
+  pinMode(output26, OUTPUT);
+  pinMode(output27, OUTPUT);
+  // Set outputs to LOW
+  digitalWrite(output26, LOW);
+  digitalWrite(output27, LOW);
+
+  // Connect to Wi-Fi network with SSID and password
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  // Print local IP address and start web server
+  Serial.println("");
+  Serial.println("WiFi connected.");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+  server.begin();
+}
+
+void loop(){
+  WiFiClient client = server.available();   // Listen for incoming clients
+
+  if (client) {                             // If a new client connects,
+    currentTime = millis();
+    previousTime = currentTime;
+    Serial.println("New Client.");          // print a message out in the serial port
+    String currentLine = "";                // make a String to hold incoming data from the client
+    while (client.connected() && currentTime - previousTime <= timeoutTime) {  // loop while the client's connected
+      currentTime = millis();
+      if (client.available()) {             // if there's bytes to read from the client,
+        char c = client.read();             // read a byte, then
+        Serial.write(c);                    // print it out the serial monitor
+        header += c;
+        if (c == '\n') {                    // if the byte is a newline character
+          // if the current line is blank, you got two newline characters in a row.
+          // that's the end of the client HTTP request, so send a response:
+          if (currentLine.length() == 0) {
+            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+            // and a content-type so the client knows what's coming, then a blank line:
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-type:text/html");
+            client.println("Connection: close");
+            client.println();
+            
+            // turns the GPIOs on and off
+            if (header.indexOf("GET /26/on") >= 0) {
+              Serial.println("GPIO 26 on");
+              output26State = "on";
+              digitalWrite(output26, HIGH);
+            } else if (header.indexOf("GET /26/off") >= 0) {
+              Serial.println("GPIO 26 off");
+              output26State = "off";
+              digitalWrite(output26, LOW);
+            } else if (header.indexOf("GET /27/on") >= 0) {
+              Serial.println("GPIO 27 on");
+              output27State = "on";
+              digitalWrite(output27, HIGH);
+            } else if (header.indexOf("GET /27/off") >= 0) {
+              Serial.println("GPIO 27 off");
+              output27State = "off";
+              digitalWrite(output27, LOW);
+            }
+            
+            // Display the HTML web page
+            client.println("<!DOCTYPE html><html>");
+            client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+            client.println("<link rel=\"icon\" href=\"data:,\">");
+            // CSS to style the on/off buttons 
+            // Feel free to change the background-color and font-size attributes to fit your preferences
+            client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
+            client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;");
+            client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
+            client.println(".button2 {background-color: #555555;}</style></head>");
+            
+            // Web Page Heading
+            client.println("<body><h1>ESP32 Web Server</h1>");
+            
+            // Display current state, and ON/OFF buttons for GPIO 26  
+            client.println("<p>GPIO 26 - State " + output26State + "</p>");
+            // If the output26State is off, it displays the ON button       
+            if (output26State=="off") {
+              client.println("<p><a href=\"/26/on\"><button class=\"button\">ON</button></a></p>");
+            } else {
+              client.println("<p><a href=\"/26/off\"><button class=\"button button2\">OFF</button></a></p>");
+            } 
+               
+            // Display current state, and ON/OFF buttons for GPIO 27  
+            client.println("<p>GPIO 27 - State " + output27State + "</p>");
+            // If the output27State is off, it displays the ON button       
+            if (output27State=="off") {
+              client.println("<p><a href=\"/27/on\"><button class=\"button\">ON</button></a></p>");
+            } else {
+              client.println("<p><a href=\"/27/off\"><button class=\"button button2\">OFF</button></a></p>");
+            }
+            client.println("</body></html>");
+            
+            // The HTTP response ends with another blank line
+            client.println();
+            // Break out of the while loop
+            break;
+          } else { // if you got a newline, then clear currentLine
+            currentLine = "";
+          }
+        } else if (c != '\r') {  // if you got anything else but a carriage return character,
+          currentLine += c;      // add it to the end of the currentLine
+        }
+      }
+    }
+    // Clear the header variable
+    header = "";
+    // Close the connection
+    client.stop();
+    Serial.println("Client disconnected.");
+    Serial.println("");
+  }
+}
+```
+</details>
+
+
+### 6) RGB LED Web Server
+Creating a web sever to change the color of a RGB LED. The web server must be mobile responsive and can be accessed with any device that as a browser on the local network.
+
+I used an ESP32c3 in std mode with ESP-IDF.
+
+<img src="../static/img/posts/rust-on-esp/project_6.gif" alt="project 6 plan" width="600" style="display: block; margin: 0 auto">
+
+<img src="../static/img/posts/rust-on-esp/project_6.png" alt="project 6 plan" width="600" style="display: block; margin: 0 auto">
+
+<details>
+<summary>Arduino code</summary>
+
+```
+// arduino code
+
+// Load Wi-Fi library
+#include <WiFi.h>
+
+// Replace with your network credentials
+const char* ssid = "REPLACE_WITH_YOUR_SSID";
+const char* password = "REPLACE_WITH_YOUR_PASSWORD";
+// Set web server port number to 80
+WiFiServer server(80);
+
+// Decode HTTP GET value
+String redString = "0";
+String greenString = "0";
+String blueString = "0";
+int pos1 = 0;
+int pos2 = 0;
+int pos3 = 0;
+int pos4 = 0;
+
+// Variable to store the HTTP req  uest
+String header;
+
+// Red, green, and blue pins for PWM control
+const int redPin = 13;     // 13 corresponds to GPIO13
+const int greenPin = 12;   // 12 corresponds to GPIO12
+const int bluePin = 14;    // 14 corresponds to GPIO14
+
+// Setting PWM frequency, channels and bit resolution
+const int freq = 5000;
+const int redChannel = 0;
+const int greenChannel = 1;
+const int blueChannel = 2;
+// Bit resolution 2^8 = 256
+const int resolution = 8;
+
+// Current time
+unsigned long currentTime = millis();
+// Previous time
+unsigned long previousTime = 0; 
+// Define timeout time in milliseconds (example: 2000ms = 2s)
+const long timeoutTime = 2000;
+
+void setup() {
+  Serial.begin(115200);
+  // configure LED PWM functionalitites
+  ledcSetup(redChannel, freq, resolution);
+  ledcSetup(greenChannel, freq, resolution);
+  ledcSetup(blueChannel, freq, resolution);
+  
+  // attach the channel to the GPIO to be controlled
+  ledcAttachPin(redPin, redChannel);
+  ledcAttachPin(greenPin, greenChannel);
+  ledcAttachPin(bluePin, blueChannel);
+  
+  // Connect to Wi-Fi network with SSID and password
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  // Print local IP address and start web server
+  Serial.println("");
+  Serial.println("WiFi connected.");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+  server.begin();
+}
+
+void loop(){
+  WiFiClient client = server.available();   // Listen for incoming clients
+
+  if (client) {                             // If a new client connects,
+    currentTime = millis();
+    previousTime = currentTime;
+    Serial.println("New Client.");          // print a message out in the serial port
+    String currentLine = "";                // make a String to hold incoming data from the client
+    while (client.connected() && currentTime - previousTime <= timeoutTime) {            // loop while the client's connected
+      currentTime = millis();
+      if (client.available()) {             // if there's bytes to read from the client,
+        char c = client.read();             // read a byte, then
+        Serial.write(c);                    // print it out the serial monitor
+        header += c;
+        if (c == '\n') {                    // if the byte is a newline character
+          // if the current line is blank, you got two newline characters in a row.
+          // that's the end of the client HTTP request, so send a response:
+          if (currentLine.length() == 0) {
+            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+            // and a content-type so the client knows what's coming, then a blank line:
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-type:text/html");
+            client.println("Connection: close");
+            client.println();
+                   
+            // Display the HTML web page
+            client.println("<!DOCTYPE html><html>");
+            client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+            client.println("<link rel=\"icon\" href=\"data:,\">");
+            client.println("<link rel=\"stylesheet\" href=\"https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css\">");
+            client.println("<script src=\"https://cdnjs.cloudflare.com/ajax/libs/jscolor/2.0.4/jscolor.min.js\"></script>");
+            client.println("</head><body><div class=\"container\"><div class=\"row\"><h1>ESP Color Picker</h1></div>");
+            client.println("<a class=\"btn btn-primary btn-lg\" href=\"#\" id=\"change_color\" role=\"button\">Change Color</a> ");
+            client.println("<input class=\"jscolor {onFineChange:'update(this)'}\" id=\"rgb\"></div>");
+            client.println("<script>function update(picker) {document.getElementById('rgb').innerHTML = Math.round(picker.rgb[0]) + ', ' +  Math.round(picker.rgb[1]) + ', ' + Math.round(picker.rgb[2]);");
+            client.println("document.getElementById(\"change_color\").href=\"?r\" + Math.round(picker.rgb[0]) + \"g\" +  Math.round(picker.rgb[1]) + \"b\" + Math.round(picker.rgb[2]) + \"&\";}</script></body></html>");
+            // The HTTP response ends with another blank line
+            client.println();
+
+            // Request sample: /?r201g32b255&
+            // Red = 201 | Green = 32 | Blue = 255
+            if(header.indexOf("GET /?r") >= 0) {
+              pos1 = header.indexOf('r');
+              pos2 = header.indexOf('g');
+              pos3 = header.indexOf('b');
+              pos4 = header.indexOf('&');
+              redString = header.substring(pos1+1, pos2);
+              greenString = header.substring(pos2+1, pos3);
+              blueString = header.substring(pos3+1, pos4);
+              /*Serial.println(redString.toInt());
+              Serial.println(greenString.toInt());
+              Serial.println(blueString.toInt());*/
+              ledcWrite(redChannel, redString.toInt());
+              ledcWrite(greenChannel, greenString.toInt());
+              ledcWrite(blueChannel, blueString.toInt());
+            }
+            // Break out of the while loop
+            break;
+          } else { // if you got a newline, then clear currentLine
+            currentLine = "";
+          }
+        } else if (c != '\r') {  // if you got anything else but a carriage return character,
+          currentLine += c;      // add it to the end of the currentLine
+        }
+      }
+    }
+    // Clear the header variable
+    header = "";
+    // Close the connection
+    client.stop();
+    Serial.println("Client disconnected.");
+    Serial.println("");
+  }
+}
+```
+</details>
+
+### 7) Relay Web Server
+Creating a web server to control electrical appliances remotely thanks to a relay. Abviously, the web server must be responsive and accessible from any device.
+
+I used an ESP32c3 in std mode with ESP-IDF.
+
+<img src="../static/img/posts/rust-on-esp/project_7.gif" alt="project 7 plan" width="600" style="display: block; margin: 0 auto">
+
+<img src="../static/img/posts/rust-on-esp/project_7.png" alt="project 7 plan" width="600" style="display: block; margin: 0 auto">
+
+<details>
+<summary>Arduino code</summary>
+
+```
+// arduino code
+
+
+// Import required libraries
+#include "WiFi.h"
+#include "ESPAsyncWebServer.h"
+
+// Set to true to define Relay as Normally Open (NO)
+#define RELAY_NO    true
+
+// Set number of relays
+#define NUM_RELAYS  2
+
+// Assign each GPIO to a relay
+int relayGPIOs[NUM_RELAYS] = {26, 27};
+
+// Replace with your network credentials
+
+const char* ssid = "REPLACE_WITH_YOUR_SSID";
+const char* password = "REPLACE_WITH_YOUR_PASSWORD";
+
+const char* PARAM_INPUT_1 = "relay";  
+const char* PARAM_INPUT_2 = "state";
+
+// Create AsyncWebServer object on port 80
+AsyncWebServer server(80);
+
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML><html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html {font-family: Arial; display: inline-block; text-align: center;}
+    h2 {font-size: 3.0rem;}
+    p {font-size: 3.0rem;}
+    body {max-width: 600px; margin:0px auto; padding-bottom: 25px;}
+    .switch {position: relative; display: inline-block; width: 120px; height: 68px} 
+    .switch input {display: none}
+    .slider {position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 34px}
+    .slider:before {position: absolute; content: ""; height: 52px; width: 52px; left: 8px; bottom: 8px; background-color: #fff; -webkit-transition: .4s; transition: .4s; border-radius: 68px}
+    input:checked+.slider {background-color: #2196F3}
+    input:checked+.slider:before {-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}
+  </style>
+</head>
+<body>
+  <h2>ESP Web Server</h2>
+  %BUTTONPLACEHOLDER%
+<script>function toggleCheckbox(element) {
+  var xhr = new XMLHttpRequest();
+  if(element.checked){ xhr.open("GET", "/update?relay="+element.id+"&state=1", true); }
+  else { xhr.open("GET", "/update?relay="+element.id+"&state=0", true); }
+  xhr.send();
+}</script>
+</body>
+</html>
+)rawliteral";
+
+// Replaces placeholder with button section in your web page
+String processor(const String& var){
+  //Serial.println(var);
+  if(var == "BUTTONPLACEHOLDER"){
+    String buttons ="";
+    for(int i=1; i<=NUM_RELAYS; i++){
+      String relayStateValue = relayState(i);
+      buttons+= "<h4>Relay #" + String(i) + " - GPIO " + relayGPIOs[i-1] + "</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"" + String(i) + "\" "+ relayStateValue +"><span class=\"slider\"></span></label>";
+    }
+    return buttons;
+  }
+  return String();
+}
+
+String relayState(int numRelay){
+  if(RELAY_NO){
+    if(digitalRead(relayGPIOs[numRelay-1])){
+      return "";
+    }
+    else {
+      return "checked";
+    }
+  }
+  else {
+    if(digitalRead(relayGPIOs[numRelay-1])){
+      return "checked";
+    }
+    else {
+      return "";
+    }
+  }
+  return "";
+}
+
+void setup(){
+  // Serial port for debugging purposes
+  Serial.begin(115200);
+
+  // Set all relays to off when the program starts - if set to Normally Open (NO), the relay is off when you set the relay to HIGH
+  for(int i=1; i<=NUM_RELAYS; i++){
+    pinMode(relayGPIOs[i-1], OUTPUT);
+    if(RELAY_NO){
+      digitalWrite(relayGPIOs[i-1], HIGH);
+    }
+    else{
+      digitalWrite(relayGPIOs[i-1], LOW);
+    }
+  }
+  
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi..");
+  }
+
+  // Print ESP32 Local IP Address
+  Serial.println(WiFi.localIP());
+
+  // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
+  // Send a GET request to <ESP_IP>/update?relay=<inputMessage>&state=<inputMessage2>
+  server.on("/update", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    String inputMessage;
+    String inputParam;
+    String inputMessage2;
+    String inputParam2;
+    // GET input1 value on <ESP_IP>/update?relay=<inputMessage>
+    if (request->hasParam(PARAM_INPUT_1) & request->hasParam(PARAM_INPUT_2)) {
+      inputMessage = request->getParam(PARAM_INPUT_1)->value();
+      inputParam = PARAM_INPUT_1;
+      inputMessage2 = request->getParam(PARAM_INPUT_2)->value();
+      inputParam2 = PARAM_INPUT_2;
+      if(RELAY_NO){
+        Serial.print("NO ");
+        digitalWrite(relayGPIOs[inputMessage.toInt()-1], !inputMessage2.toInt());
+      }
+      else{
+        Serial.print("NC ");
+        digitalWrite(relayGPIOs[inputMessage.toInt()-1], inputMessage2.toInt());
+      }
+    }
+    else {
+      inputMessage = "No message sent";
+      inputParam = "none";
+    }
+    Serial.println(inputMessage + inputMessage2);
+    request->send(200, "text/plain", "OK");
+  });
+  // Start server
+  server.begin();
+}
+  
+void loop() {
+
+}
+```
+</details>
+
+### 8) Output State Synchronization Web Server
+Controlling ESP outputs by using a web server and/or a physical button. The output state is updated on the web page wether it is changed via physical button or web server.
+
+I used an ESP32c3 in no_std and async way with Embassy.
+
+<img src="../static/img/posts/rust-on-esp" alt="project 8 plan" width="600" style="display: block; margin: 0 auto">
+
+### 9) DHT11 Web Server
+
+### 10) OLED Display

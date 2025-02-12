@@ -214,3 +214,11 @@ div.footer{
   padding-bottom: 15px;
   
 }*/
+
+/* Règle CSS pour redimensionner les images sur tablette et smartphone */
+@media (max-width: 768px) {
+  img {
+      width: 300px;
+      height: auto; /* Pour conserver les proportions de l'image */
+  }
+}
