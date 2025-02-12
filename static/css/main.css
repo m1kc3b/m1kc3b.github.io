@@ -215,7 +215,16 @@ div.footer{
   
 }*/
 
-/* Règle CSS pour redimensionner les images sur tablette et smartphone */
+/* Image 
+-------------------------------------------------- */
+img {
+  display: block;
+  float: none;
+  margin-left: auto;
+  margin-right: auto;
+  width: 600;
+  height: auto;
+}
 @media (max-width: 768px) {
   img {
       width: 300px;
