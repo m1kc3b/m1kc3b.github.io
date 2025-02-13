@@ -192,8 +192,41 @@ body {
 .blogpost{
   text-align: left;
   line-height: 30px;
+}
+
+.blogpost p {
   font-size: 18px;
 }
+
+/* Code 
+-------------------------------------------------- */
+
+p.code {
+  font-family: 'Courier New', Courier, monospace; /* Utilise une police monospace */
+  background-color: #f4f4f4; /* Fond clair pour imiter un éditeur de code */
+  padding: 10px; /* Ajoute un espace intérieur */
+  border: 1px solid #ddd; /* Ajoute une bordure légère */
+  border-radius: 4px; /* Coins arrondis */
+  white-space: pre-wrap; /* Conserve les espaces et les retours à la ligne */
+  word-wrap: break-word; /* Gère le débordement de texte */
+  color: #333; /* Couleur de texte */
+  overflow-x: auto; /* Ajoute une barre de défilement horizontale si nécessaire */
+}
+
+/* Coloration syntaxique de base (exemple) */
+p.code .keyword {
+  color: #007acc; /* Couleur pour les mots-clés */
+}
+
+p.code .string {
+  color: #a31515; /* Couleur pour les chaînes de caractères */
+}
+
+p.code .comment {
+  color: #008000; /* Couleur pour les commentaires */
+  font-style: italic; /* Italique pour les commentaires */
+}
+
 
 /* Footer 
 -------------------------------------------------- */
