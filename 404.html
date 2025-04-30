@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ooops!</title>
+</head>
+<body>
+  <p>Oops! La page demandée n'a pas été trouvée.</p>
+
+  <script>
+    // Récupérer le chemin de l'URL qui a causé l'erreur 404
+    const path = window.location.pathname;
+
+    // Rediriger vers cette URL pour que Vue Router puisse la gérer
+    // Utiliser window.location.replace() pour éviter de créer une entrée dans l'historique
+    window.location.replace(path);
+  </script>
+</body>
+</html>
